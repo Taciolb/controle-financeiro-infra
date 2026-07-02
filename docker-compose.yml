@@ -50,6 +50,18 @@ services:
     networks:
       - financeiro-network
 
+  postgres-evolution:
+    image: postgres:15-alpine
+    container_name: postgres-evolution
+    environment:
+      POSTGRES_DB: evolution
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5437:5432"
+    networks:
+      - financeiro-network
+
   # ==================== MICROSSERVIÇOS ====================
 
   ms-usuarios:
@@ -153,9 +165,34 @@ services:
       EVOLUTION_API_URL: ${EVOLUTION_API_URL}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE}
+      WHATSAPP_ENABLED: "false"
     depends_on:
       - postgres-notificacao
       - ms-lancamentos
+      - evolution-api
+    networks:
+      - financeiro-network
+
+  evolution-api:
+    image: atendai/evolution-api:v2.1.1
+    container_name: evolution-api
+    ports:
+      - "8089:8080"
+    environment:
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      DEL_INSTANCE: "false"
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-evolution:5432/evolution
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      QRCODE_LIMIT: 30
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    depends_on:
+      - postgres-evolution
     networks:
       - financeiro-network
 
@@ -183,3 +220,7 @@ services:
 networks:
   financeiro-network:
     driver: bridge
+
+volumes:
+  evolution_instances:
+  evolution_store:
